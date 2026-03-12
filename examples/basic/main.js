@@ -2,6 +2,25 @@ import { HttpServer, Response } from "http-server";
 
 const app = new HttpServer();
 
+app.use(async (c, next) => {
+	const startedAt = Date.now();
+	const method = c.req.method.toUpperCase();
+	const path = c.req.path;
+
+	try {
+		const response = await next();
+		const duration = Date.now() - startedAt;
+		const status = response?.status ?? 500;
+		const contentLength = response?.headers?.get("content-length") ?? "-";
+		trace(`[http] ${method} ${path} -> ${status} ${duration}ms length=${contentLength}\n`);
+		return response;
+	} catch (error) {
+		const duration = Date.now() - startedAt;
+		trace(`[http] ${method} ${path} -> 500 ${duration}ms error=${error}\n`);
+		throw error;
+	}
+});
+
 app.get("/response", (_c) => {
 	return new Response("Thank you for coming", {
 		status: 201,
