@@ -1,5 +1,6 @@
 import listen from "listen";
 import Headers from "headers";
+// biome-ignore lint/style/useNodejsImportProtocol: use Moddable's built-in url Module
 import { URLSearchParams } from "url";
 
 class Request {
@@ -271,12 +272,32 @@ class Router {
 
 class HttpServer {
 	#router = new Router();
+	#middlewares = [];
 
 	get = (path, handler) => this.#router.add("get", path, handler);
 	post = (path, handler) => this.#router.add("post", path, handler);
 	put = (path, handler) => this.#router.add("put", path, handler);
 	patch = (path, handler) => this.#router.add("patch", path, handler);
 	delete = (path, handler) => this.#router.add("delete", path, handler);
+	use = (...args) => {
+		let path = "*";
+		let handlers = args;
+
+		if (typeof args[0] === "string") {
+			path = args[0];
+			handlers = args.slice(1);
+		}
+
+		for (const handler of handlers) {
+			if (typeof handler !== "function") {
+				continue;
+			}
+			this.#middlewares.push({
+				path,
+				handler,
+			});
+		}
+	};
 
 	constructor(options = {}) {
 		const port = options?.port;
@@ -290,17 +311,24 @@ class HttpServer {
 			let response;
 
 			try {
-				if (req.method === "options") {
-					const allow = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
-					response = new Response("", { status: 204, headers: { Allow: allow.join(", ") } });
-				} else {
-					const matched = this.#router.find(req.method, req.path);
-					if (!matched) {
-						response = context.notFound();
-					} else {
-						req.params = matched.params;
-						response = await matched.handler(context);
+				const matched = this.#router.find(req.method, req.path);
+
+				response = await this.#dispatch(context, async () => {
+					if (req.method === "options") {
+						const allow = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+						return new Response("", { status: 204, headers: { Allow: allow.join(", ") } });
 					}
+
+					if (!matched) {
+						return context.notFound();
+					}
+
+					req.params = matched.params;
+					return await matched.handler(context);
+				});
+
+				if (response === undefined) {
+					response = context.text("Internal Server Error", 500);
 				}
 			} catch (e) {
 				trace(`HTTP Error: ${e}\n`);
@@ -312,6 +340,58 @@ class HttpServer {
 				connection.respondWith(response);
 			}
 		}
+	}
+
+	async #dispatch(context, handler) {
+		const stack = this.#middlewares
+			.filter((middleware) => this.#matchMiddlewarePath(middleware.path, context.req.path))
+			.map((middleware) => middleware.handler);
+
+		let index = -1;
+		const dispatch = (i) => {
+			if (i <= index) {
+				return Promise.reject(new Error("next() called multiple times"));
+			}
+			index = i;
+
+			const fn = stack[i];
+			if (fn === undefined) {
+				return Promise.resolve(handler(context));
+			}
+
+			try {
+				return Promise.resolve(fn(context, () => dispatch(i + 1)));
+			} catch (error) {
+				return Promise.reject(error);
+			}
+		};
+
+		return await dispatch(0);
+	}
+
+	#matchMiddlewarePath(middlewarePath, requestPath) {
+		if (!middlewarePath || middlewarePath === "*") {
+			return true;
+		}
+
+		const normalizedRequestPath = this.#normalizePath(requestPath);
+		const normalizedMiddlewarePath = this.#normalizePath(middlewarePath);
+
+		if (normalizedMiddlewarePath.endsWith("/*")) {
+			const prefix = normalizedMiddlewarePath.slice(0, -2);
+			return normalizedRequestPath === prefix || normalizedRequestPath.startsWith(`${prefix}/`);
+		}
+
+		return normalizedRequestPath === normalizedMiddlewarePath;
+	}
+
+	#normalizePath(path) {
+		if (!path || path === "/") {
+			return "/";
+		}
+
+		const normalized = path.replace(/\/+$/u, "");
+		return normalized || "/";
 	}
 }
 

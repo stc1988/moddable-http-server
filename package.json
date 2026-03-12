@@ -6,8 +6,8 @@
 		"format": "biome format --write .",
 		"lint": "biome lint --write .",
 		"start": "mcconfig -d -m examples/basic/manifest.json",
-		"test:http": "hurl --test --color --variable BASE_URL=http://localhost:80 tests/*.hurl",
-		"test": "npm run start & sleep 3&npm run test:http"
+		"test:http": "hurl --test --jobs 1 --color --variable BASE_URL=http://localhost:80 tests/*.hurl",
+		"test": "npm run start & sleep 3 & npm run test:http"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.6",
