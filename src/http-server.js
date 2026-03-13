@@ -169,11 +169,15 @@ class Router {
 	add(method, path, handler) {
 		const routes = this.#routes[method];
 		if (!routes) return;
+		const normalizedPath = this.#normalizePath(path);
 
 		if (path.includes(":") || path.includes("*")) {
-			routes.dynamic.push({ path, handler });
+			routes.dynamic.push({
+				handler,
+				segments: this.#splitPath(normalizedPath),
+			});
 		} else {
-			routes.static.set(path, handler);
+			routes.static.set(normalizedPath, handler);
 		}
 	}
 
@@ -195,13 +199,13 @@ class Router {
 		const routes = this.#routes[method];
 		if (!routes) return null;
 
-		const exactHandler = routes.static.get(normalizedPath) ?? routes.static.get(path);
+		const exactHandler = routes.static.get(normalizedPath);
 		if (exactHandler) {
 			return { handler: exactHandler, params: {} };
 		}
 
 		for (const route of routes.dynamic) {
-			const params = this.#matchPath(route.path, normalizedPath);
+			const params = this.#matchPath(route.segments, normalizedPath);
 			if (params) {
 				return { handler: route.handler, params };
 			}
@@ -227,8 +231,7 @@ class Router {
 		return normalized.slice(1).split("/");
 	}
 
-	#matchPath(routePath, actualPath) {
-		const routeSegments = this.#splitPath(routePath);
+	#matchPath(routeSegments, actualPath) {
 		const actualSegments = this.#splitPath(actualPath);
 		const params = {};
 
@@ -289,15 +292,22 @@ class HttpServer {
 		}
 
 		for (const handler of handlers) {
-			if (typeof handler !== "function") {
-				continue;
+				if (typeof handler !== "function") {
+					continue;
+				}
+
+				const normalizedPath = this.#normalizePath(path);
+				const isWildcard = !path || path === "*";
+				const isPrefixWildcard = !isWildcard && normalizedPath.endsWith("/*");
+				const prefix = isPrefixWildcard ? normalizedPath.slice(0, -2) : normalizedPath;
+				this.#middlewares.push({
+					isPrefixWildcard,
+					isWildcard,
+					prefix,
+					handler,
+				});
 			}
-			this.#middlewares.push({
-				path,
-				handler,
-			});
-		}
-	};
+		};
 
 	constructor(options = {}) {
 		const port = options?.port;
@@ -343,10 +353,8 @@ class HttpServer {
 	}
 
 	async #dispatch(context, handler) {
-		const stack = this.#middlewares
-			.filter((middleware) => this.#matchMiddlewarePath(middleware.path, context.req.path))
-			.map((middleware) => middleware.handler);
-
+		const middlewares = this.#middlewares;
+		const requestPath = this.#normalizePath(context.req.path);
 		let index = -1;
 		const dispatch = (i) => {
 			if (i <= index) {
@@ -354,13 +362,23 @@ class HttpServer {
 			}
 			index = i;
 
-			const fn = stack[i];
+			let fn;
+			let nextIndex = i;
+			while (nextIndex < middlewares.length) {
+				const middleware = middlewares[nextIndex];
+				if (this.#matchMiddlewarePath(middleware, requestPath)) {
+					fn = middleware.handler;
+					break;
+				}
+				nextIndex += 1;
+			}
+
 			if (fn === undefined) {
 				return Promise.resolve(handler(context));
 			}
 
 			try {
-				return Promise.resolve(fn(context, () => dispatch(i + 1)));
+				return Promise.resolve(fn(context, () => dispatch(nextIndex + 1)));
 			} catch (error) {
 				return Promise.reject(error);
 			}
@@ -369,20 +387,16 @@ class HttpServer {
 		return await dispatch(0);
 	}
 
-	#matchMiddlewarePath(middlewarePath, requestPath) {
-		if (!middlewarePath || middlewarePath === "*") {
+	#matchMiddlewarePath(middleware, requestPath) {
+		if (middleware.isWildcard) {
 			return true;
 		}
 
-		const normalizedRequestPath = this.#normalizePath(requestPath);
-		const normalizedMiddlewarePath = this.#normalizePath(middlewarePath);
-
-		if (normalizedMiddlewarePath.endsWith("/*")) {
-			const prefix = normalizedMiddlewarePath.slice(0, -2);
-			return normalizedRequestPath === prefix || normalizedRequestPath.startsWith(`${prefix}/`);
+		if (middleware.isPrefixWildcard) {
+			return requestPath === middleware.prefix || requestPath.startsWith(`${middleware.prefix}/`);
 		}
 
-		return normalizedRequestPath === normalizedMiddlewarePath;
+		return requestPath === middleware.prefix;
 	}
 
 	#normalizePath(path) {
