@@ -47,6 +47,8 @@ This file defines working guidelines for AI agents contributing to this reposito
 
 ## 6. Implementation Guidance
 - Check `examples/basic/main.js` and `tests/*.hurl` first to understand expected behavior.
+- For Hurl syntax, sections, request body writing, and CLI/report options, always refer to the official Hurl documentation first: https://hurl.dev/docs/request.html , https://hurl.dev/docs/grammar.html , https://hurl.dev/docs/running-tests.html , https://hurl.dev/docs/manual.html
+- Do not invent or guess unsupported Hurl syntax, section names, or options. If a construct cannot be verified in the official Hurl docs or existing repo tests, treat it as uncertain rather than proposing it as valid.
 - Add or update tests for any API behavior change.
 - Avoid renaming public interfaces (`Context`, `Request`, `Response`, `HttpServer`) unless explicitly required.
 - Keep header handling aligned with existing normalization logic.
