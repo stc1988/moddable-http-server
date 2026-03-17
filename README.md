@@ -150,7 +150,8 @@ Current behavior (validated by tests):
 
 - Trailing slash normalization (`/users/123/` matches `/users/:id`)
 - `HEAD` falls back to `GET` route matching
-- `OPTIONS` returns `204` with `Allow: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS`
+- `OPTIONS` returns `204` with route-specific `Allow` header
+- Method mismatch on existing route returns `405 Method Not Allowed` with `Allow` header
 - Unmatched route returns `404 Resource Not Found`
 - Handler/middleware errors fall back to `500 Internal Server Error`
 - If a handler returns `undefined`, it falls back to `500 Internal Server Error`
