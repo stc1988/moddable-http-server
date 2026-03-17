@@ -1,7 +1,9 @@
 #!/bin/sh
 
+HOST=${1:-localhost}
+
 rm -rf perf/report.json
-hurl --repeat 100 --verbose perf/get.hurl --variable BASE_URL=http://localhost:80 --report-json perf/report.json
+hurl --repeat 100 --verbose perf/get.hurl --variable BASE_URL=http://$HOST:80 --report-json perf/report.json
 jq '
 def r2: ((.*100)|round)/100;
 
