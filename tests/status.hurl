@@ -28,3 +28,9 @@ HTTP 204
 # status 304
 GET {{BASE_URL}}/status/304
 HTTP 304
+
+# redirect helper
+GET {{BASE_URL}}/redirect
+HTTP 302
+[Asserts]
+header "Location" == "/json"

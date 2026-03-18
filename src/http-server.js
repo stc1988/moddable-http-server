@@ -36,6 +36,9 @@ class Request {
 	async json() {
 		return await this.raw.json();
 	}
+	async arrayBuffer() {
+		return await this.raw.arrayBuffer();
+	}
 	async formData() {
 		const queryString = await this.text();
 		return Object.fromEntries(new URLSearchParams(queryString));
@@ -149,6 +152,13 @@ class Context {
 		this.#headers.set("Content-type", "application/json");
 		return new Response(JSON.stringify(json), {
 			status: status ?? this.#status,
+			headers: Object.fromEntries(this.#headers.entries()),
+		});
+	}
+	redirect(location, status = 302) {
+		this.#headers.set("Location", location);
+		return new Response("", {
+			status,
 			headers: Object.fromEntries(this.#headers.entries()),
 		});
 	}

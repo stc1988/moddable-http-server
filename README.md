@@ -7,7 +7,7 @@ It provides a small but practical API:
 - Routing (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`)
 - Path params (`/users/:id`) and wildcard routes (`/files/*`)
 - Middleware (`app.use(...)`)
-- Context helpers for text/JSON responses
+- Context helpers for text/JSON/redirect responses
 - Request helpers for headers, query, body parsing
 
 ## Requirements
@@ -119,6 +119,7 @@ app.use("/api/*", async (c, next) => {
 - `c.header(key, value)`: set response header
 - `c.text(body, status?)`: create text response
 - `c.json(value, status?)`: create JSON response
+- `c.redirect(location, status?)`: create redirect response
 - `c.notFound()`: `404 Resource Not Found`
 
 ### Request (`c.req`)
@@ -131,6 +132,7 @@ app.use("/api/*", async (c, next) => {
 - `params`: matched route params
 - `await text()`
 - `await json()`
+- `await arrayBuffer()`
 - `await formData()` (URL-encoded form data)
 
 ### `new Response(body, options?)`
