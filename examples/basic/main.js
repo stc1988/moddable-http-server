@@ -41,6 +41,15 @@ app.get("/query", (c) => {
 	return c.text(`Your  query is ${text}`);
 });
 
+app.get("/redirect", (c) => {
+	return c.redirect("/json");
+});
+
+app.get("/redirect/307", (c) => {
+	c.status(307);
+	return c.redirect("/json");
+});
+
 app.get("/json", (c) => {
 	const posts = [
 		{ id: 1, title: "Good Morning" },
@@ -59,6 +68,11 @@ app.post("/post/text", async (c) => {
 app.post("/post/json", async (c) => {
 	const json = await c.req.json();
 	return c.json(json);
+});
+
+app.post("/post/binary", async (c) => {
+	const body = await c.req.arrayBuffer();
+	return c.text(`bytes: ${body.byteLength}, text: ${String.fromArrayBuffer(body)}`);
 });
 
 app.post("/post/form", async (c) => {
