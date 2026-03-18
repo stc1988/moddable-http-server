@@ -156,21 +156,18 @@ class Context {
 		this.#headers.set("Content-type", "text/plain");
 		return new Response(text, {
 			status: status ?? this.#status,
-			headers: Object.fromEntries(this.#headers.entries()),
 		});
 	}
 	json(json, status) {
 		this.#headers.set("Content-type", "application/json");
 		return new Response(JSON.stringify(json), {
 			status: status ?? this.#status,
-			headers: Object.fromEntries(this.#headers.entries()),
 		});
 	}
 	redirect(location, status) {
 		this.#headers.set("Location", location);
 		return new Response("", {
 			status: status ?? this.#status ?? 302,
-			headers: Object.fromEntries(this.#headers.entries()),
 		});
 	}
 	notFound() {
@@ -383,13 +380,15 @@ class HttpServer {
 
 				if (response === undefined) {
 					response = context.text("Internal Server Error", 500);
-				} else {
-					response = context.applyHeaders(response);
 				}
 			} catch (e) {
 				trace(`HTTP Error: ${e}\n`);
 				response = context.text("Internal Server Error", 500);
 			} finally {
+				if (response) {
+					response = context.applyHeaders(response);
+				}
+
 				if (req.method === "head" && response) {
 					response = new Response("", {
 						status: response.status,
