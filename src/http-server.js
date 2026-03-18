@@ -141,6 +141,17 @@ class Context {
 	header(key, value) {
 		this.#headers.set(key, value);
 	}
+	applyHeaders(response) {
+		if (!response?.headers) {
+			return response;
+		}
+
+		for (const [key, value] of this.#headers.entries()) {
+			response.headers.set(key, value);
+		}
+
+		return response;
+	}
 	text(text, status) {
 		this.#headers.set("Content-type", "text/plain");
 		return new Response(text, {
@@ -372,6 +383,8 @@ class HttpServer {
 
 				if (response === undefined) {
 					response = context.text("Internal Server Error", 500);
+				} else {
+					response = context.applyHeaders(response);
 				}
 			} catch (e) {
 				trace(`HTTP Error: ${e}\n`);
