@@ -1,4 +1,5 @@
 import { HttpServer, Response } from "http-server";
+import { sse } from "http-server/sse";
 
 const app = new HttpServer();
 
@@ -127,6 +128,14 @@ app.get("/files/*", (c) => {
 		route: "/files/*",
 		path: c.param("*"),
 	});
+});
+
+app.get("/sse", () => {
+	return sse([
+		{ comment: "moddable-http-server" },
+		{ event: "greeting", id: "1", data: { message: "hello" } },
+		{ event: "done", id: "2", data: "bye" },
+	]);
 });
 
 app.get("/status/204", () => {

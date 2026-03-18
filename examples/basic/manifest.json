@@ -1,5 +1,5 @@
 {
-	"include": ["$(MODDABLE)/examples/manifest_base.json", "../../src/manifest.json"],
+	"include": ["$(MODDABLE)/examples/manifest_base.json", "../../src/manifest.json", "../../src/sse/manifest.json"],
 	"modules": {
 		"*": ["./main"]
 	}
