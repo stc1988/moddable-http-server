@@ -31,6 +31,10 @@ app.get("/response", (_c) => {
 	});
 });
 
+app.get("/response/default", () => {
+	return new Response("Default response");
+});
+
 app.get("/header", (c) => {
 	const userAgent = c.req.header("User-Agent");
 	return c.text(`Your UserAgent is ${userAgent}`);

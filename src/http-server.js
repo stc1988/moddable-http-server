@@ -49,7 +49,7 @@ class Response {
 	#body;
 	#headers;
 	#status = 200;
-	constructor(body, options) {
+	constructor(body, options = {}) {
 		if (body instanceof ArrayBuffer) {
 			this.#body = body;
 		} else if (typeof body === "string") {
