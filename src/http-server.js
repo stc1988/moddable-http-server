@@ -341,7 +341,6 @@ class HttpServer {
 
 			try {
 				const matched = this.#router.find(req.method, req.path);
-
 				response = await this.#dispatch(context, async () => {
 					if (req.method === "options") {
 						const allow = this.#router.allowedMethods(req.path);
@@ -369,15 +368,12 @@ class HttpServer {
 				response = context.text("Internal Server Error", 500);
 			} finally {
 				if (req.method === "head" && response) {
-					const contentLength = response.headers.get("content-length");
 					response = new Response("", {
 						status: response.status,
 						headers: Object.fromEntries(response.headers.entries()),
 					});
 
-					if (contentLength !== undefined && response.status !== 204 && response.status !== 304) {
-						response.headers.set("content-length", contentLength);
-					}
+					response.headers.set("content-length", "0");
 				}
 
 				if (response?.headers && response.headers.get("connection") === undefined) {
