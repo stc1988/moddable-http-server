@@ -3,21 +3,6 @@ import Headers from "headers";
 // biome-ignore lint/style/useNodejsImportProtocol: use Moddable's built-in url Module
 import { URLSearchParams } from "url";
 
-const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
-
-function createRouteTable() {
-	return Object.fromEntries(HTTP_METHODS.map((method) => [method, { static: new Map(), dynamic: [] }]));
-}
-
-function normalizePath(path) {
-	if (!path || path === "/") {
-		return "/";
-	}
-
-	const normalized = path.replace(/\/+$/u, "");
-	return normalized || "/";
-}
-
 class Request {
 	raw;
 
@@ -194,12 +179,18 @@ class Context {
 }
 
 class Router {
-	#routes = createRouteTable();
+	#routes = {
+		get: { static: new Map(), dynamic: [] },
+		post: { static: new Map(), dynamic: [] },
+		put: { static: new Map(), dynamic: [] },
+		patch: { static: new Map(), dynamic: [] },
+		delete: { static: new Map(), dynamic: [] },
+	};
 
 	add(method, path, handler) {
 		const routes = this.#routes[method];
 		if (!routes) return;
-		const normalizedPath = normalizePath(path);
+		const normalizedPath = this.#normalizePath(path);
 
 		if (path.includes(":") || path.includes("*")) {
 			routes.dynamic.push({
@@ -212,7 +203,7 @@ class Router {
 	}
 
 	find(method, path) {
-		const normalizedPath = normalizePath(path);
+		const normalizedPath = this.#normalizePath(path);
 		const matched = this.#findInMethod(method, path, normalizedPath);
 		if (matched) {
 			return matched;
@@ -226,10 +217,10 @@ class Router {
 	}
 
 	allowedMethods(path) {
-		const normalizedPath = normalizePath(path);
+		const normalizedPath = this.#normalizePath(path);
 		const allow = [];
 
-		for (const method of HTTP_METHODS) {
+		for (const method of Object.keys(this.#routes)) {
 			if (this.#findInMethod(method, path, normalizedPath)) {
 				allow.push(method.toUpperCase());
 			}
@@ -244,7 +235,7 @@ class Router {
 		return allow;
 	}
 
-	#findInMethod(method, path, normalizedPath = normalizePath(path)) {
+	#findInMethod(method, path, normalizedPath = this.#normalizePath(path)) {
 		const routes = this.#routes[method];
 		if (!routes) return null;
 
@@ -263,8 +254,17 @@ class Router {
 		return null;
 	}
 
+	#normalizePath(path) {
+		if (!path || path === "/") {
+			return "/";
+		}
+
+		const normalized = path.replace(/\/+$/u, "");
+		return normalized || "/";
+	}
+
 	#splitPath(path) {
-		const normalized = normalizePath(path);
+		const normalized = this.#normalizePath(path);
 		if (normalized === "/") {
 			return [];
 		}
@@ -336,7 +336,7 @@ class HttpServer {
 				continue;
 			}
 
-			const normalizedPath = normalizePath(path);
+			const normalizedPath = this.#normalizePath(path);
 			const isWildcard = !path || path === "*";
 			const isPrefixWildcard = !isWildcard && normalizedPath.endsWith("/*");
 			const prefix = isPrefixWildcard ? normalizedPath.slice(0, -2) : normalizedPath;
@@ -356,87 +356,60 @@ class HttpServer {
 
 	async #listen(port) {
 		for await (const connection of listen({ port })) {
-			const response = await this.#handleRequest(connection.request);
-			connection.respondWith(response);
-		}
-	}
+			const context = new Context(connection.request);
+			const req = context.req;
+			let response;
 
-	async #handleRequest(request) {
-		const context = new Context(request);
-		const req = context.req;
+			try {
+				const matched = this.#router.find(req.method, req.path);
+				response = await this.#dispatch(context, async () => {
+					if (req.method === "options") {
+						const allow = this.#router.allowedMethods(req.path);
+						return new Response("", { status: 204, headers: { Allow: allow.join(", ") } });
+					}
 
-		try {
-			let response = await this.#resolveResponse(context);
-			if (response === undefined) {
-				response = this.#internalServerError(context);
-			} else {
-				response = context.applyHeaders(response);
+					if (!matched) {
+						const allow = this.#router.allowedMethods(req.path);
+						if (allow.some((method) => method !== "OPTIONS")) {
+							context.header("Allow", allow.join(", "));
+							return context.text("Method Not Allowed", 405);
+						}
+						return context.notFound();
+					}
+
+					req.params = matched.params;
+					return await matched.handler(context);
+				});
+
+				if (response === undefined) {
+					response = context.text("Internal Server Error", 500);
+				} else {
+					response = context.applyHeaders(response);
+				}
+			} catch (e) {
+				trace(`HTTP Error: ${e}\n`);
+				response = context.text("Internal Server Error", 500);
+			} finally {
+				if (req.method === "head" && response) {
+					response = new Response("", {
+						status: response.status,
+						headers: Object.fromEntries(response.headers.entries()),
+					});
+
+					response.headers.set("content-length", "0");
+				}
+
+				if (response?.headers && response.headers.get("connection") === undefined) {
+					response.headers.set("connection", "close");
+				}
+				connection.respondWith(response);
 			}
-			return this.#finalizeResponse(req.method, response);
-		} catch (error) {
-			trace(`HTTP Error: ${error}\n`);
-			return this.#finalizeResponse(req.method, this.#internalServerError(context));
 		}
-	}
-
-	async #resolveResponse(context) {
-		const req = context.req;
-		const matched = this.#router.find(req.method, req.path);
-
-		return await this.#dispatch(context, async () => {
-			if (req.method === "options") {
-				return this.#optionsResponse(req.path);
-			}
-
-			if (!matched) {
-				return this.#missingRouteResponse(context);
-			}
-
-			req.params = matched.params;
-			return await matched.handler(context);
-		});
-	}
-
-	#optionsResponse(path) {
-		const allow = this.#router.allowedMethods(path);
-		return new Response("", { status: 204, headers: { Allow: allow.join(", ") } });
-	}
-
-	#missingRouteResponse(context) {
-		const allow = this.#router.allowedMethods(context.req.path);
-		if (allow.some((method) => method !== "OPTIONS")) {
-			context.header("Allow", allow.join(", "));
-			return context.text("Method Not Allowed", 405);
-		}
-		return context.notFound();
-	}
-
-	#internalServerError(context) {
-		return context.text("Internal Server Error", 500);
-	}
-
-	#finalizeResponse(method, response) {
-		let finalResponse = response;
-
-		if (method === "head" && finalResponse) {
-			finalResponse = new Response("", {
-				status: finalResponse.status,
-				headers: Object.fromEntries(finalResponse.headers.entries()),
-			});
-
-			finalResponse.headers.set("content-length", "0");
-		}
-
-		if (finalResponse?.headers && finalResponse.headers.get("connection") === undefined) {
-			finalResponse.headers.set("connection", "close");
-		}
-
-		return finalResponse;
 	}
 
 	async #dispatch(context, handler) {
 		const middlewares = this.#middlewares;
-		const requestPath = normalizePath(context.req.path);
+		const requestPath = this.#normalizePath(context.req.path);
 		let index = -1;
 		const dispatch = (i) => {
 			if (i <= index) {
@@ -479,6 +452,15 @@ class HttpServer {
 		}
 
 		return requestPath === middleware.prefix;
+	}
+
+	#normalizePath(path) {
+		if (!path || path === "/") {
+			return "/";
+		}
+
+		const normalized = path.replace(/\/+$/u, "");
+		return normalized || "/";
 	}
 }
 
