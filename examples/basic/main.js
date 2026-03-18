@@ -9,6 +9,7 @@ app.use(async (c, next) => {
 
 	try {
 		const response = await next();
+		c.header("X-Powered-By", "moddable-http-server");
 		const duration = Date.now() - startedAt;
 		const status = response?.status ?? 500;
 		const contentLength = response?.headers?.get("content-length") ?? "-";
@@ -29,6 +30,10 @@ app.get("/response", (_c) => {
 			"Content-Type": "text/plain",
 		},
 	});
+});
+
+app.get("/response/default", () => {
+	return new Response("Default response");
 });
 
 app.get("/header", (c) => {

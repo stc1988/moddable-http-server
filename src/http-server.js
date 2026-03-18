@@ -49,7 +49,7 @@ class Response {
 	#body;
 	#headers;
 	#status = 200;
-	constructor(body, options) {
+	constructor(body, options = {}) {
 		if (body instanceof ArrayBuffer) {
 			this.#body = body;
 		} else if (typeof body === "string") {
@@ -141,25 +141,33 @@ class Context {
 	header(key, value) {
 		this.#headers.set(key, value);
 	}
+	applyHeaders(response) {
+		if (!response?.headers) {
+			return response;
+		}
+
+		for (const [key, value] of this.#headers.entries()) {
+			response.headers.set(key, value);
+		}
+
+		return response;
+	}
 	text(text, status) {
 		this.#headers.set("Content-type", "text/plain");
 		return new Response(text, {
 			status: status ?? this.#status,
-			headers: Object.fromEntries(this.#headers.entries()),
 		});
 	}
 	json(json, status) {
 		this.#headers.set("Content-type", "application/json");
 		return new Response(JSON.stringify(json), {
 			status: status ?? this.#status,
-			headers: Object.fromEntries(this.#headers.entries()),
 		});
 	}
 	redirect(location, status) {
 		this.#headers.set("Location", location);
 		return new Response("", {
 			status: status ?? this.#status ?? 302,
-			headers: Object.fromEntries(this.#headers.entries()),
 		});
 	}
 	notFound() {
@@ -377,6 +385,10 @@ class HttpServer {
 				trace(`HTTP Error: ${e}\n`);
 				response = context.text("Internal Server Error", 500);
 			} finally {
+				if (response) {
+					response = context.applyHeaders(response);
+				}
+
 				if (req.method === "head" && response) {
 					response = new Response("", {
 						status: response.status,

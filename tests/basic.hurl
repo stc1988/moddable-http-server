@@ -4,6 +4,12 @@ HTTP 201
 header "X-Message" == "Hello"
 body == "Thank you for coming"
 
+GET {{BASE_URL}}/response/default
+HTTP 200
+[Asserts]
+header "content-type" == "application/octet-stream"
+body == "Default response"
+
 GET {{BASE_URL}}/json
 HTTP 200
 [Asserts]

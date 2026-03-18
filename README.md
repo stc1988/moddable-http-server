@@ -116,7 +116,7 @@ app.use("/api/*", async (c, next) => {
 - `c.req`: request object
 - `c.param(key?)`: route params (`key` omitted => full params object)
 - `c.status(code)`: set default status for `c.text()` / `c.json()` / `c.redirect()`
-- `c.header(key, value)`: set response header
+- `c.header(key, value)`: set a header on the final response
 - `c.text(body, status?)`: create text response
 - `c.json(value, status?)`: create JSON response
 - `c.redirect(location, status?)`: create redirect response
@@ -145,6 +145,8 @@ Behavior:
 - Default `content-type`: `application/octet-stream`
 - Default `content-length`: computed from body bytes
 - For `204` / `304`: body is cleared and `content-length` is removed
+
+Headers queued with `c.header()` are merged into the final returned `Response`, so middleware can set headers either before or after `await next()`.
 
 ## Routing and HTTP Behavior
 
