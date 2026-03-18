@@ -64,7 +64,6 @@ This file defines working guidelines for AI agents contributing to this reposito
 3. Run `npm run lint`.
 4. Run `npm run test:http` or `npm test` based on impact.
 5. Report what changed and what was verified.
-6. When file diffs are produced as a result of the work, run `difit .` so file diffs can be reviewed.
 
 ## 9. Anti-Patterns
 - Do not mix unrelated large refactors with focused fixes.
