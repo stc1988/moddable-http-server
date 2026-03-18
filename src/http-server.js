@@ -31,10 +31,13 @@ class Request {
 		this.raw.params = params;
 	}
 	async text() {
-		return await this.raw.text();
+		return this.raw.text();
 	}
 	async json() {
-		return await this.raw.json();
+		return this.raw.json();
+	}
+	async arrayBuffer() {
+		return this.raw.arrayBuffer();
 	}
 	async formData() {
 		const queryString = await this.text();
@@ -149,6 +152,13 @@ class Context {
 		this.#headers.set("Content-type", "application/json");
 		return new Response(JSON.stringify(json), {
 			status: status ?? this.#status,
+			headers: Object.fromEntries(this.#headers.entries()),
+		});
+	}
+	redirect(location, status) {
+		this.#headers.set("Location", location);
+		return new Response("", {
+			status: status ?? this.#status ?? 302,
 			headers: Object.fromEntries(this.#headers.entries()),
 		});
 	}
