@@ -2,6 +2,36 @@ import { HttpServer, Response } from "http-server";
 
 const app = new HttpServer();
 
+app.onNotFound((c) => {
+	return c.json(
+		{
+			error: "Not Found",
+			path: c.req.path,
+		},
+		404,
+	);
+});
+
+app.onMethodNotAllowed((c, allow) => {
+	return c.json(
+		{
+			error: "Method Not Allowed",
+			allow,
+		},
+		405,
+	);
+});
+
+app.onError((error, c) => {
+	trace(`[http] custom error handler path=${c.req.path} error=${error}\n`);
+	return c.json(
+		{
+			error: "Internal Server Error",
+		},
+		500,
+	);
+});
+
 app.use(async (c, next) => {
 	const startedAt = Date.now();
 	const method = c.req.method.toUpperCase();
@@ -105,4 +135,8 @@ app.get("/status/204", () => {
 
 app.get("/status/304", () => {
 	return new Response("", { status: 304 });
+});
+
+app.get("/error", () => {
+	throw new Error("boom");
 });
