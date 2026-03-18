@@ -34,3 +34,9 @@ GET {{BASE_URL}}/redirect
 HTTP 302
 [Asserts]
 header "Location" == "/json"
+
+# redirect helper respects c.status
+GET {{BASE_URL}}/redirect/307
+HTTP 307
+[Asserts]
+header "Location" == "/json"

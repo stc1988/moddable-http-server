@@ -115,7 +115,7 @@ app.use("/api/*", async (c, next) => {
 
 - `c.req`: request object
 - `c.param(key?)`: route params (`key` omitted => full params object)
-- `c.status(code)`: set default status for `c.text()` / `c.json()`
+- `c.status(code)`: set default status for `c.text()` / `c.json()` / `c.redirect()`
 - `c.header(key, value)`: set response header
 - `c.text(body, status?)`: create text response
 - `c.json(value, status?)`: create JSON response

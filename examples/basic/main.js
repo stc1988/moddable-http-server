@@ -45,6 +45,11 @@ app.get("/redirect", (c) => {
 	return c.redirect("/json");
 });
 
+app.get("/redirect/307", (c) => {
+	c.status(307);
+	return c.redirect("/json");
+});
+
 app.get("/json", (c) => {
 	const posts = [
 		{ id: 1, title: "Good Morning" },
