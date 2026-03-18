@@ -195,6 +195,25 @@ class Router {
 		return null;
 	}
 
+	allowedMethods(path) {
+		const normalizedPath = this.#normalizePath(path);
+		const allow = [];
+
+		for (const method of Object.keys(this.#routes)) {
+			if (this.#findInMethod(method, path, normalizedPath)) {
+				allow.push(method.toUpperCase());
+			}
+		}
+
+		if (allow.includes("GET") && !allow.includes("HEAD")) {
+			allow.push("HEAD");
+		}
+
+		allow.push("OPTIONS");
+
+		return allow;
+	}
+
 	#findInMethod(method, path, normalizedPath = this.#normalizePath(path)) {
 		const routes = this.#routes[method];
 		if (!routes) return null;
@@ -292,22 +311,22 @@ class HttpServer {
 		}
 
 		for (const handler of handlers) {
-				if (typeof handler !== "function") {
-					continue;
-				}
-
-				const normalizedPath = this.#normalizePath(path);
-				const isWildcard = !path || path === "*";
-				const isPrefixWildcard = !isWildcard && normalizedPath.endsWith("/*");
-				const prefix = isPrefixWildcard ? normalizedPath.slice(0, -2) : normalizedPath;
-				this.#middlewares.push({
-					isPrefixWildcard,
-					isWildcard,
-					prefix,
-					handler,
-				});
+			if (typeof handler !== "function") {
+				continue;
 			}
-		};
+
+			const normalizedPath = this.#normalizePath(path);
+			const isWildcard = !path || path === "*";
+			const isPrefixWildcard = !isWildcard && normalizedPath.endsWith("/*");
+			const prefix = isPrefixWildcard ? normalizedPath.slice(0, -2) : normalizedPath;
+			this.#middlewares.push({
+				isPrefixWildcard,
+				isWildcard,
+				prefix,
+				handler,
+			});
+		}
+	};
 
 	constructor(options = {}) {
 		const port = options?.port;
@@ -322,14 +341,18 @@ class HttpServer {
 
 			try {
 				const matched = this.#router.find(req.method, req.path);
-
 				response = await this.#dispatch(context, async () => {
 					if (req.method === "options") {
-						const allow = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
+						const allow = this.#router.allowedMethods(req.path);
 						return new Response("", { status: 204, headers: { Allow: allow.join(", ") } });
 					}
 
 					if (!matched) {
+						const allow = this.#router.allowedMethods(req.path);
+						if (allow.some((method) => method !== "OPTIONS")) {
+							context.header("Allow", allow.join(", "));
+							return context.text("Method Not Allowed", 405);
+						}
 						return context.notFound();
 					}
 
@@ -344,6 +367,15 @@ class HttpServer {
 				trace(`HTTP Error: ${e}\n`);
 				response = context.text("Internal Server Error", 500);
 			} finally {
+				if (req.method === "head" && response) {
+					response = new Response("", {
+						status: response.status,
+						headers: Object.fromEntries(response.headers.entries()),
+					});
+
+					response.headers.set("content-length", "0");
+				}
+
 				if (response?.headers && response.headers.get("connection") === undefined) {
 					response.headers.set("connection", "close");
 				}
