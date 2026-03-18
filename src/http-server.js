@@ -313,12 +313,27 @@ class Router {
 class HttpServer {
 	#router = new Router();
 	#middlewares = [];
+	#notFoundHandler;
+	#methodNotAllowedHandler;
+	#errorHandler;
 
 	get = (path, handler) => this.#router.add("get", path, handler);
 	post = (path, handler) => this.#router.add("post", path, handler);
 	put = (path, handler) => this.#router.add("put", path, handler);
 	patch = (path, handler) => this.#router.add("patch", path, handler);
 	delete = (path, handler) => this.#router.add("delete", path, handler);
+	onNotFound = (handler) => {
+		this.#notFoundHandler = typeof handler === "function" ? handler : undefined;
+		return this;
+	};
+	onMethodNotAllowed = (handler) => {
+		this.#methodNotAllowedHandler = typeof handler === "function" ? handler : undefined;
+		return this;
+	};
+	onError = (handler) => {
+		this.#errorHandler = typeof handler === "function" ? handler : undefined;
+		return this;
+	};
 	use = (...args) => {
 		let path = "*";
 		let handlers = args;
@@ -368,10 +383,9 @@ class HttpServer {
 					if (!matched) {
 						const allow = this.#router.allowedMethods(req.path);
 						if (allow.some((method) => method !== "OPTIONS")) {
-							context.header("Allow", allow.join(", "));
-							return context.text("Method Not Allowed", 405);
+							return await this.#handleMethodNotAllowed(context, allow);
 						}
-						return context.notFound();
+						return await this.#handleNotFound(context);
 					}
 
 					req.params = matched.params;
@@ -379,11 +393,11 @@ class HttpServer {
 				});
 
 				if (response === undefined) {
-					response = context.text("Internal Server Error", 500);
+					response = await this.#handleError(context, new Error("Response was undefined"));
 				}
 			} catch (e) {
 				trace(`HTTP Error: ${e}\n`);
-				response = context.text("Internal Server Error", 500);
+				response = await this.#handleError(context, e);
 			} finally {
 				if (response) {
 					response = context.applyHeaders(response);
@@ -403,6 +417,39 @@ class HttpServer {
 				}
 				connection.respondWith(response);
 			}
+		}
+	}
+
+	async #handleNotFound(context) {
+		if (!this.#notFoundHandler) {
+			return context.notFound();
+		}
+
+		const response = await this.#notFoundHandler(context);
+		return response ?? context.notFound();
+	}
+
+	async #handleMethodNotAllowed(context, allow) {
+		context.header("Allow", allow.join(", "));
+		if (!this.#methodNotAllowedHandler) {
+			return context.text("Method Not Allowed", 405);
+		}
+
+		const response = await this.#methodNotAllowedHandler(context, allow);
+		return response ?? context.text("Method Not Allowed", 405);
+	}
+
+	async #handleError(context, error) {
+		if (!this.#errorHandler) {
+			return context.text("Internal Server Error", 500);
+		}
+
+		try {
+			const response = await this.#errorHandler(error, context);
+			return response ?? context.text("Internal Server Error", 500);
+		} catch (handlerError) {
+			trace(`HTTP Error Handler Error: ${handlerError}\n`);
+			return context.text("Internal Server Error", 500);
 		}
 	}
 
