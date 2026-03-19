@@ -1,4 +1,5 @@
 import { HttpServer, Response } from "http-server";
+import { basicAuth } from "basic-auth";
 
 const app = new HttpServer();
 
@@ -51,6 +52,15 @@ app.use(async (c, next) => {
 		throw error;
 	}
 });
+
+app.use(
+	"/private/*",
+	basicAuth({
+		username: "admin",
+		password: "secret",
+		realm: "Example",
+	}),
+);
 
 app.get("/response", (_c) => {
 	return new Response("Thank you for coming", {
@@ -126,6 +136,13 @@ app.get("/files/*", (c) => {
 	return c.json({
 		route: "/files/*",
 		path: c.param("*"),
+	});
+});
+
+app.get("/private/secret", (c) => {
+	return c.json({
+		message: "Authenticated",
+		user: "admin",
 	});
 });
 

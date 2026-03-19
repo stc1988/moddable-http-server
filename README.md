@@ -21,6 +21,7 @@ It provides a small but practical API:
 - `src/http-server.js`: core implementation (`HttpServer`, `Response`)
 - `src/manifest.json`: module manifest
 - `examples/basic/main.js`: runnable example app
+- `middleware/basic-auth/`: optional Basic 認証ミドルウェア
 - `tests/*.hurl`: HTTP behavior tests
 
 ## Quick Start
@@ -90,6 +91,33 @@ app.use("/api/*", async (c, next) => {
 - `"*"` (default): applies to all routes
 - exact path: `"/api"`
 - prefix wildcard: `"/api/*"`
+
+### Optional Middleware Modules
+
+Optional middleware lives under `middleware/<name>/` and is enabled by adding its `manifest.json` to your app manifest.
+
+```json
+{
+  "include": [
+    "../../src/manifest.json",
+    "../../middleware/basic-auth/manifest.json"
+  ]
+}
+```
+
+Basic auth usage:
+
+```js
+import { basicAuth } from "basic-auth";
+
+app.use("/private/*", basicAuth({
+  username: "admin",
+  password: "secret",
+  realm: "Example"
+}));
+```
+
+When authentication fails, the middleware returns `401 Unauthorized` with a `WWW-Authenticate` header.
 
 ## API
 
