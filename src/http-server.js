@@ -193,6 +193,7 @@ class Router {
 			routes.dynamic.push({
 				handler,
 				segments: this.#splitPath(normalizedPath),
+				normalizedPath,
 			});
 		} else {
 			routes.static.set(normalizedPath, handler);
@@ -241,8 +242,10 @@ class Router {
 			return { handler: exactHandler, params: {} };
 		}
 
+		const actualSegments = this.#splitPath(normalizedPath);
+
 		for (const route of routes.dynamic) {
-			const params = this.#matchPath(route.segments, normalizedPath);
+			const params = this.#matchPath(route.segments, route.normalizedPath, normalizedPath, actualSegments);
 			if (params) {
 				return { handler: route.handler, params };
 			}
@@ -268,9 +271,16 @@ class Router {
 		return normalized.slice(1).split("/");
 	}
 
-	#matchPath(routeSegments, actualPath) {
-		const actualSegments = this.#splitPath(actualPath);
+	#matchPath(routeSegments, routePath, actualPath, actualSegments = this.#splitPath(actualPath)) {
 		const params = {};
+
+		if (routeSegments.length === 0) {
+			return actualSegments.length === 0 ? params : null;
+		}
+
+		if (!routePath.includes("*") && routeSegments.length !== actualSegments.length) {
+			return null;
+		}
 
 		let routeIndex = 0;
 		let actualIndex = 0;
