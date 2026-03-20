@@ -22,3 +22,19 @@ HTTP 200
 [Asserts]
 header "X-Powered-By" == "moddable-http-server"
 jsonpath "$.name" == "stackchan"
+
+# basic auth middleware should reject missing credentials
+GET {{BASE_URL}}/private/secret
+HTTP 401
+[Asserts]
+header "WWW-Authenticate" == "Basic realm=\"Example\""
+body == "Unauthorized"
+
+# basic auth middleware should allow valid credentials
+GET {{BASE_URL}}/private/secret
+Authorization: Basic YWRtaW46c2VjcmV0
+HTTP 200
+[Asserts]
+header "X-Powered-By" == "moddable-http-server"
+jsonpath "$.message" == "Authenticated"
+jsonpath "$.user" == "admin"

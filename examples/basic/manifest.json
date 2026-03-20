@@ -1,5 +1,9 @@
 {
-	"include": ["$(MODDABLE)/examples/manifest_base.json", "../../src/manifest.json"],
+	"include": [
+		"$(MODDABLE)/examples/manifest_base.json",
+		"../../src/manifest.json",
+		"../../middleware/basic-auth/manifest.json"
+	],
 	"modules": {
 		"*": ["./main"]
 	}
