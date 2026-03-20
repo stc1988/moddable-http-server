@@ -1,6 +1,5 @@
 import { Response } from "http-server";
-
-const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+import Base64 from "base64";
 
 function decodeBase64(input) {
 	let clean = "";
@@ -15,38 +14,11 @@ function decodeBase64(input) {
 		return null;
 	}
 
-	let output = "";
-	for (let i = 0; i < clean.length; i += 4) {
-		const chunk = clean.slice(i, i + 4);
-		let padding = 0;
-		const values = [];
-
-		for (let j = 0; j < chunk.length; j += 1) {
-			const char = chunk[j];
-			if (char === "=") {
-				padding += 1;
-				values.push(0);
-				continue;
-			}
-
-			const value = BASE64_ALPHABET.indexOf(char);
-			if (value < 0) {
-				return null;
-			}
-			values.push(value);
-		}
-
-		const buffer = (values[0] << 18) | (values[1] << 12) | (values[2] << 6) | values[3];
-		output += String.fromCharCode((buffer >> 16) & 255);
-		if (padding < 2) {
-			output += String.fromCharCode((buffer >> 8) & 255);
-		}
-		if (padding < 1) {
-			output += String.fromCharCode(buffer & 255);
-		}
+	try {
+		return String.fromArrayBuffer(Base64.decode(clean));
+	} catch {
+		return null;
 	}
-
-	return output;
 }
 
 function createUnauthorizedResponse(realm) {
