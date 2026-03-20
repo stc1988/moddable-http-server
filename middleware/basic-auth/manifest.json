@@ -1,4 +1,7 @@
 {
+	"include": [
+		"$(MODDABLE)/modules/data/base64/manifest.json"
+	],
 	"modules": {
 		"*": ["./basic-auth"]
 	}
