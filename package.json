@@ -6,7 +6,9 @@
 		"format": "biome format --write .",
 		"lint": "biome lint --write .",
 		"start": "mcconfig -d -m examples/basic/manifest.json",
+		"start:deep-middleware": "mcconfig -d -m examples/deep-middleware/manifest.json",
 		"test:http": "sh scripts/run-hurl-tests.sh",
+		"test:http:deep-middleware": "sh scripts/run-deep-middleware-tests.sh",
 		"test": "npm run start & sleep 3 & npm run test:http",
 		"perf:get": "sh perf/get.sh",
 		"perf": "npm run start & sleep 3 & npm run perf:get"

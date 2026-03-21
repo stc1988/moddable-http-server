@@ -464,38 +464,97 @@ class HttpServer {
 	}
 
 	async #dispatch(context, handler) {
-		const middlewares = this.#middlewares;
+		const matchedMiddlewares = [];
 		const requestPath = this.#normalizePath(context.req.path);
-		let index = -1;
-		const dispatch = (i) => {
-			if (i <= index) {
-				return Promise.reject(new Error("next() called multiple times"));
-			}
-			index = i;
 
-			let fn;
-			let nextIndex = i;
-			while (nextIndex < middlewares.length) {
-				const middleware = middlewares[nextIndex];
-				if (this.#matchMiddlewarePath(middleware, requestPath)) {
-					fn = middleware.handler;
-					break;
-				}
-				nextIndex += 1;
+		for (const middleware of this.#middlewares) {
+			if (this.#matchMiddlewarePath(middleware, requestPath)) {
+				matchedMiddlewares.push(middleware.handler);
 			}
+		}
 
-			if (fn === undefined) {
-				return Promise.resolve(handler(context));
-			}
+		const createDeferred = () => {
+			let resolve;
+			let reject;
+			const promise = new Promise((res, rej) => {
+				resolve = res;
+				reject = rej;
+			});
+			return { promise, resolve, reject };
+		};
 
+		const settle = async (promise) => {
 			try {
-				return Promise.resolve(fn(context, () => dispatch(nextIndex + 1)));
+				return { type: "return", value: await promise };
 			} catch (error) {
-				return Promise.reject(error);
+				return { type: "throw", error };
 			}
 		};
 
-		return await dispatch(0);
+		const frames = [];
+		let index = 0;
+		let completion;
+
+		while (true) {
+			if (index >= matchedMiddlewares.length) {
+				completion = await settle(Promise.resolve(handler(context)));
+				break;
+			}
+
+			const fn = matchedMiddlewares[index];
+			const nextDeferred = createDeferred();
+			const nextCalled = createDeferred();
+			let nextUsed = false;
+			let middlewareResult;
+
+			try {
+				middlewareResult = Promise.resolve(
+					fn(context, () => {
+						if (nextUsed) {
+							return Promise.reject(new Error("next() called multiple times"));
+						}
+
+						nextUsed = true;
+						nextCalled.resolve(true);
+						return nextDeferred.promise;
+					}),
+				);
+			} catch (error) {
+				completion = { type: "throw", error };
+				break;
+			}
+
+			const step = await Promise.race([
+				nextCalled.promise.then(() => ({ type: "next" })),
+				settle(middlewareResult),
+			]);
+
+			if (step.type === "next") {
+				frames.push({ middlewareResult, nextDeferred });
+				index += 1;
+				continue;
+			}
+
+			completion = step;
+			break;
+		}
+
+		while (frames.length > 0) {
+			const frame = frames.pop();
+			if (completion.type === "throw") {
+				frame.nextDeferred.reject(completion.error);
+			} else {
+				frame.nextDeferred.resolve(completion.value);
+			}
+
+			completion = await settle(frame.middlewareResult);
+		}
+
+		if (completion.type === "throw") {
+			throw completion.error;
+		}
+
+		return completion.value;
 	}
 
 	#matchMiddlewarePath(middleware, requestPath) {
