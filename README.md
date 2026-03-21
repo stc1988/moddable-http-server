@@ -20,7 +20,8 @@ It provides a small but practical API:
 
 - `src/http-server.js`: core implementation (`HttpServer`, `Response`)
 - `src/manifest.json`: module manifest
-- `examples/basic/main.js`: runnable example app
+- `examples/basic/main.js`: basic feature example app
+- `examples/deep-middleware/main.js`: deep middleware chain example app
 - `middleware/basic-auth/`: optional Basic 認証ミドルウェア
 - `tests/*.hurl`: HTTP behavior tests
 
@@ -32,7 +33,7 @@ Install dependencies:
 npm install
 ```
 
-Run the example server:
+Run the basic example server:
 
 ```bash
 npm run start
@@ -44,6 +45,13 @@ Run HTTP tests (expects server at `http://localhost:80`):
 
 ```bash
 npm run test:http
+```
+
+Run the separate deep-middleware example + test when you want to validate long middleware chains:
+
+```bash
+npm run start:deep-middleware
+npm run test:http:deep-middleware
 ```
 
 Run start + tests together:
