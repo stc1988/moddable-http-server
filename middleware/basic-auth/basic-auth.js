@@ -1,5 +1,5 @@
-import { Response } from "http-server";
 import Base64 from "base64";
+import { Response } from "http-server";
 
 function decodeBase64(input) {
 	let clean = "";

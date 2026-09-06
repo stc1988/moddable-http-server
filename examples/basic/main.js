@@ -1,5 +1,5 @@
-import { HttpServer, Response } from "http-server";
 import { basicAuth } from "basic-auth";
+import { HttpServer, Response } from "http-server";
 
 const app = new HttpServer();
 

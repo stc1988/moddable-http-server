@@ -16,26 +16,13 @@
 			"pins/*": ["./node_modules/@moddable/typings/pins/*"],
 			"piu/*": ["./node_modules/@moddable/typings/piu/*"],
 			"text/*": ["./node_modules/@moddable/typings/text/*"],
-			"embedded:provider/*": [
-				"./node_modules/@moddable/typings/embedded_provider/*"
-			],
+			"embedded:provider/*": ["./node_modules/@moddable/typings/embedded_provider/*"],
 			"embedded:io/*": ["./node_modules/@moddable/typings/embedded_io/*"],
-			"embedded:io/socket/*": [
-				"./node_modules/@moddable/typings/embedded_io/socket/*"
-			],
-			"embedded:network/http/*": [
-				"./node_modules/@moddable/typings/embedded_network/http/*"
-			],
-			"embedded:network/mqtt/*": [
-				"./node_modules/@moddable/typings/embedded_network/mqtt/*"
-			],
-			"embedded:network/dns/resolver/*": [
-				"./node_modules/@moddable/typings/embedded_network/dns/resolver/*"
-			]
+			"embedded:io/socket/*": ["./node_modules/@moddable/typings/embedded_io/socket/*"],
+			"embedded:network/http/*": ["./node_modules/@moddable/typings/embedded_network/http/*"],
+			"embedded:network/mqtt/*": ["./node_modules/@moddable/typings/embedded_network/mqtt/*"],
+			"embedded:network/dns/resolver/*": ["./node_modules/@moddable/typings/embedded_network/dns/resolver/*"]
 		},
-		"types": [
-			"./node_modules/@moddable/typings/xs",
-			"./node_modules/@moddable/typings/mcpack"
-		]
+		"types": ["./node_modules/@moddable/typings/xs", "./node_modules/@moddable/typings/mcpack"]
 	}
 }

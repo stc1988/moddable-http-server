@@ -1,5 +1,5 @@
-import listen from "listen";
 import Headers from "headers";
+import listen from "listen";
 // biome-ignore lint/style/useNodejsImportProtocol: use Moddable's built-in url Module
 import { URLSearchParams } from "url";
 
@@ -524,10 +524,7 @@ class HttpServer {
 				break;
 			}
 
-			const step = await Promise.race([
-				nextCalled.promise.then(() => ({ type: "next" })),
-				settle(middlewareResult),
-			]);
+			const step = await Promise.race([nextCalled.promise.then(() => ({ type: "next" })), settle(middlewareResult)]);
 
 			if (step.type === "next") {
 				frames.push({ middlewareResult, nextDeferred });
