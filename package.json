@@ -14,7 +14,7 @@
 		"perf": "npm run start & sleep 3 & npm run perf:get"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.4.6",
-		"@moddable/typings": "7.1.0"
+		"@biomejs/biome": "2.5.12",
+		"@moddable/typings": "9.5.0"
 	}
 }
