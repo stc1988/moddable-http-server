@@ -18,7 +18,7 @@ It provides a small but practical API:
 
 ## Project Structure
 
-- `src/http-server.js`: core implementation (`HttpServer`, `Response`)
+- `src/http-server.ts`: TypeScript core implementation (`HttpServer`, `Response`)
 - `src/manifest.json`: module manifest
 - `examples/basic/main.js`: basic feature example app
 - `examples/deep-middleware/main.js`: deep middleware chain example app
@@ -45,6 +45,12 @@ Run HTTP tests (expects server at `http://localhost:80`):
 
 ```bash
 npm run test:http
+```
+
+Type-check the server and middleware implementations:
+
+```bash
+npm run typecheck
 ```
 
 Run the separate deep-middleware example + test when you want to validate long middleware chains:

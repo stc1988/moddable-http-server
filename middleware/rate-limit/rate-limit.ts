@@ -1,6 +1,12 @@
 import Time from "time";
+import type { Middleware } from "http-server";
 
-function rateLimit({ limit = 60, windowMs = 60_000 } = {}) {
+interface RateLimitOptions {
+	limit?: number;
+	windowMs?: number;
+}
+
+function rateLimit({ limit = 60, windowMs = 60_000 }: RateLimitOptions = {}): Middleware {
 	if (!Number.isSafeInteger(limit) || limit < 1) {
 		throw new RangeError("limit must be a positive safe integer");
 	}
@@ -8,7 +14,7 @@ function rateLimit({ limit = 60, windowMs = 60_000 } = {}) {
 		throw new RangeError("windowMs must be between 1 and 2147483647");
 	}
 
-	let startedAt;
+	let startedAt: number | undefined;
 	let count = 0;
 	return (c, next) => {
 		const now = Time.ticks;
@@ -28,3 +34,4 @@ function rateLimit({ limit = 60, windowMs = 60_000 } = {}) {
 }
 
 export { rateLimit };
+export type { RateLimitOptions };

@@ -3,65 +3,105 @@ import listen from "listen";
 import TextDecoder from "text/decoder";
 import TextEncoder from "text/encoder";
 // biome-ignore lint/style/useNodejsImportProtocol: use Moddable's built-in url Module
+import type URL from "url";
+// biome-ignore lint/style/useNodejsImportProtocol: use Moddable's built-in url Module
 import { URLSearchParams } from "url";
 
-class Request {
-	raw;
+type MaybePromise<T> = T | Promise<T>;
+type Params = Record<string, string>;
+type Query = Record<string, string>;
+type ResponseResult = MaybePromise<Response | undefined>;
 
-	constructor(request) {
+interface RawRequest {
+	method: string;
+	url: URL;
+	headers: Headers;
+	params?: Params;
+	validated?: unknown;
+	arrayBuffer(): Promise<ArrayBuffer | null | undefined>;
+}
+
+interface ResponseOptions {
+	status?: number;
+	headers?: Record<string, string>;
+}
+
+interface HttpServerOptions {
+	port?: number;
+}
+
+type RouteHandler = (context: Context) => ResponseResult;
+type Next = () => Promise<Response | undefined>;
+type Middleware = (context: Context, next: Next) => ResponseResult;
+type NotFoundHandler = (context: Context) => ResponseResult;
+type MethodNotAllowedHandler = (context: Context, allow: string[]) => ResponseResult;
+type ErrorHandler = (error: unknown, context: Context) => ResponseResult;
+
+class Request {
+	raw: RawRequest;
+
+	constructor(request: RawRequest) {
 		this.raw = request;
 	}
-	get method() {
+	get method(): string {
 		return this.raw.method.toLowerCase();
 	}
-	get path() {
+	get path(): string {
 		return this.raw.url.pathname;
 	}
-	get url() {
+	get url(): string {
 		return this.raw.url.href;
 	}
-	header(key) {
+	header(key: string): string | undefined {
 		return this.raw.headers.get(key.toLowerCase());
 	}
-	query(key) {
-		return key ? this.raw.url.searchParams.get(key) : Object.fromEntries(this.raw.url.searchParams.entries());
+	query(key: string): string | null;
+	query(): Query;
+	query(key?: string): string | null | Query {
+		return key ? this.raw.url.searchParams.get(key) : Object.fromEntries(this.raw.url.searchParams);
 	}
-	get params() {
+	get params(): Params {
 		return this.raw.params ?? {};
 	}
-	set params(params) {
+	set params(params: Params) {
 		this.raw.params = params;
 	}
-	async text() {
+	get validated(): unknown {
+		return this.raw.validated;
+	}
+	set validated(value: unknown) {
+		this.raw.validated = value;
+	}
+	async text(): Promise<string | null | undefined> {
 		const body = await this.raw.arrayBuffer();
 		return body == null ? body : new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(body);
 	}
-	async json() {
+	async json(): Promise<unknown> {
 		const text = await this.text();
 		return text == null ? text : JSON.parse(text);
 	}
-	async arrayBuffer() {
+	async arrayBuffer(): Promise<ArrayBuffer | null | undefined> {
 		return this.raw.arrayBuffer();
 	}
-	async formData() {
+	async formData(): Promise<Query> {
 		const queryString = await this.text();
-		return Object.fromEntries(new URLSearchParams(queryString));
+		return Object.fromEntries(new URLSearchParams(queryString as string));
 	}
 }
 
 class Response {
-	#body;
-	#headers;
-	#status = 200;
-	constructor(body, options = {}) {
+	#body: ArrayBuffer | undefined;
+	#headers: Headers;
+	#status: number;
+	constructor(body?: unknown, options: ResponseOptions = {}) {
 		if (body instanceof ArrayBuffer) {
 			this.#body = body;
 		} else if (typeof body === "string") {
-			this.#body = new TextEncoder().encode(body).buffer;
+			this.#body = new TextEncoder().encode(body).buffer as ArrayBuffer;
 		} else if (body === undefined || body === null) {
 			this.#body = new ArrayBuffer(0);
 		} else {
-			this.#body = new TextEncoder().encode(String(body)).buffer;
+			this.#body = new TextEncoder().encode(String(body)).buffer as ArrayBuffer;
 		}
 		const headers = new Headers();
 		if (options.headers) {
@@ -86,16 +126,16 @@ class Response {
 			headers.delete("content-length");
 		}
 	}
-	get body() {
+	get body(): ArrayBuffer | undefined {
 		return this.#body;
 	}
-	get headers() {
+	get headers(): Headers {
 		return this.#headers;
 	}
-	get status() {
+	get status(): number {
 		return this.#status;
 	}
-	async arrayBuffer() {
+	async arrayBuffer(): Promise<ArrayBuffer | undefined> {
 		let body = this.#body;
 		if (body) {
 			this.#body = undefined;
@@ -103,49 +143,49 @@ class Response {
 		}
 		return body;
 	}
-	async json() {
-		let body = this.#body;
+	async json(): Promise<unknown> {
+		const body = this.#body;
 		if (body) {
 			this.#body = undefined;
-			body = await body;
-			body = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(body);
-			return JSON.parse(body);
+			const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(await body);
+			return JSON.parse(text);
 		}
 		return body;
 	}
-	async text() {
-		let body = this.#body;
+	async text(): Promise<string | undefined> {
+		const body = this.#body;
 		if (body) {
 			this.#body = undefined;
-			body = await body;
-			body = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(body);
+			return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(await body);
 		}
 		return body;
 	}
 }
 
 class Context {
-	#req;
-	#status;
+	#req: Request;
+	#status: number | undefined;
 	#headers = new Headers();
 
-	constructor(request) {
+	constructor(request: RawRequest) {
 		this.#req = new Request(request);
 	}
-	get req() {
+	get req(): Request {
 		return this.#req;
 	}
-	param(key) {
+	param(key: string): string | undefined;
+	param(): Params;
+	param(key?: string): string | Params | undefined {
 		const params = this.#req.params;
 		return key ? params[key] : params;
 	}
-	status(status) {
+	status(status: number): void {
 		this.#status = status;
 	}
-	header(key, value) {
+	header(key: string, value: string): void {
 		this.#headers.set(key, value);
 	}
-	applyHeaders(response) {
+	applyHeaders(response: Response | undefined): Response | undefined {
 		if (!response?.headers) {
 			return response;
 		}
@@ -156,31 +196,57 @@ class Context {
 
 		return response;
 	}
-	text(text, status) {
+	text(text: unknown, status?: number): Response {
 		this.#headers.set("Content-type", "text/plain");
 		return new Response(text, {
 			status: status ?? this.#status,
 		});
 	}
-	json(json, status) {
+	json(json: unknown, status?: number): Response {
 		this.#headers.set("Content-type", "application/json");
 		return new Response(JSON.stringify(json), {
 			status: status ?? this.#status,
 		});
 	}
-	redirect(location, status) {
+	redirect(location: string, status?: number): Response {
 		this.#headers.set("Location", location);
 		return new Response("", {
 			status: status ?? this.#status ?? 302,
 		});
 	}
-	notFound() {
+	notFound(): Response {
 		return this.text("Resource Not Found", 404);
 	}
 }
 
+interface DynamicRoute {
+	handler: RouteHandler;
+	segments: string[];
+	normalizedPath: string;
+}
+
+interface RouteMatch {
+	handler: RouteHandler;
+	params: Params;
+}
+
+interface RegisteredMiddleware {
+	isPrefixWildcard: boolean;
+	isWildcard: boolean;
+	prefix: string;
+	handler: Middleware;
+}
+
+interface Deferred<T> {
+	promise: Promise<T>;
+	resolve: (value: T | PromiseLike<T>) => void;
+	reject: (reason?: unknown) => void;
+}
+
+type Completion<T> = { type: "return"; value: T } | { type: "throw"; error: unknown };
+
 class Router {
-	#routes = {
+	#routes: Record<string, { static: Map<string, RouteHandler>; dynamic: DynamicRoute[] }> = {
 		get: { static: new Map(), dynamic: [] },
 		post: { static: new Map(), dynamic: [] },
 		put: { static: new Map(), dynamic: [] },
@@ -188,7 +254,7 @@ class Router {
 		delete: { static: new Map(), dynamic: [] },
 	};
 
-	add(method, path, handler) {
+	add(method: string, path: string, handler: RouteHandler): void {
 		const routes = this.#routes[method];
 		if (!routes) return;
 		const normalizedPath = this.#normalizePath(path);
@@ -204,7 +270,7 @@ class Router {
 		}
 	}
 
-	find(method, path) {
+	find(method: string, path: string): RouteMatch | null {
 		const normalizedPath = this.#normalizePath(path);
 		const matched = this.#findInMethod(method, path, normalizedPath);
 		if (matched) {
@@ -218,7 +284,7 @@ class Router {
 		return null;
 	}
 
-	allowedMethods(path) {
+	allowedMethods(path: string): string[] {
 		const normalizedPath = this.#normalizePath(path);
 		const allow = [];
 
@@ -237,7 +303,7 @@ class Router {
 		return allow;
 	}
 
-	#findInMethod(method, path, normalizedPath = this.#normalizePath(path)) {
+	#findInMethod(method: string, path: string, normalizedPath = this.#normalizePath(path)): RouteMatch | null {
 		const routes = this.#routes[method];
 		if (!routes) return null;
 
@@ -258,7 +324,7 @@ class Router {
 		return null;
 	}
 
-	#normalizePath(path) {
+	#normalizePath(path: string): string {
 		if (!path || path === "/") {
 			return "/";
 		}
@@ -267,7 +333,7 @@ class Router {
 		return normalized || "/";
 	}
 
-	#splitPath(path) {
+	#splitPath(path: string): string[] {
 		const normalized = this.#normalizePath(path);
 		if (normalized === "/") {
 			return [];
@@ -275,8 +341,13 @@ class Router {
 		return normalized.slice(1).split("/");
 	}
 
-	#matchPath(routeSegments, routePath, actualPath, actualSegments = this.#splitPath(actualPath)) {
-		const params = {};
+	#matchPath(
+		routeSegments: string[],
+		routePath: string,
+		actualPath: string,
+		actualSegments = this.#splitPath(actualPath),
+	): Params | null {
+		const params: Params = {};
 
 		if (routeSegments.length === 0) {
 			return actualSegments.length === 0 ? params : null;
@@ -326,35 +397,38 @@ class Router {
 
 class HttpServer {
 	#router = new Router();
-	#middlewares = [];
-	#notFoundHandler;
-	#methodNotAllowedHandler;
-	#errorHandler;
+	#middlewares: RegisteredMiddleware[] = [];
+	#notFoundHandler: NotFoundHandler | undefined;
+	#methodNotAllowedHandler: MethodNotAllowedHandler | undefined;
+	#errorHandler: ErrorHandler | undefined;
 
-	get = (path, handler) => this.#router.add("get", path, handler);
-	post = (path, handler) => this.#router.add("post", path, handler);
-	put = (path, handler) => this.#router.add("put", path, handler);
-	patch = (path, handler) => this.#router.add("patch", path, handler);
-	delete = (path, handler) => this.#router.add("delete", path, handler);
-	onNotFound = (handler) => {
+	get = (path: string, handler: RouteHandler): void => this.#router.add("get", path, handler);
+	post = (path: string, handler: RouteHandler): void => this.#router.add("post", path, handler);
+	put = (path: string, handler: RouteHandler): void => this.#router.add("put", path, handler);
+	patch = (path: string, handler: RouteHandler): void => this.#router.add("patch", path, handler);
+	delete = (path: string, handler: RouteHandler): void => this.#router.add("delete", path, handler);
+	onNotFound = (handler: NotFoundHandler): this => {
 		this.#notFoundHandler = typeof handler === "function" ? handler : undefined;
 		return this;
 	};
-	onMethodNotAllowed = (handler) => {
+	onMethodNotAllowed = (handler: MethodNotAllowedHandler): this => {
 		this.#methodNotAllowedHandler = typeof handler === "function" ? handler : undefined;
 		return this;
 	};
-	onError = (handler) => {
+	onError = (handler: ErrorHandler): this => {
 		this.#errorHandler = typeof handler === "function" ? handler : undefined;
 		return this;
 	};
-	use = (...args) => {
+	use: {
+		(...handlers: Middleware[]): void;
+		(path: string, ...handlers: Middleware[]): void;
+	} = (...args: [string, ...Middleware[]] | Middleware[]) => {
 		let path = "*";
-		let handlers = args;
+		let handlers: Middleware[] = args as Middleware[];
 
 		if (typeof args[0] === "string") {
 			path = args[0];
-			handlers = args.slice(1);
+			handlers = args.slice(1) as Middleware[];
 		}
 
 		for (const handler of handlers) {
@@ -375,17 +449,17 @@ class HttpServer {
 		}
 	};
 
-	constructor(options = {}) {
+	constructor(options: HttpServerOptions = {}) {
 		const port = options?.port ?? 80;
 		this.#listen(port);
 		trace(`[http] Listening on port ${port}\n`);
 	}
 
-	async #listen(port) {
+	async #listen(port: number): Promise<void> {
 		for await (const connection of listen({ port })) {
 			const context = new Context(connection.request);
 			const req = context.req;
-			let response;
+			let response: Response | undefined;
 
 			try {
 				const matched = this.#router.find(req.method, req.path);
@@ -435,7 +509,7 @@ class HttpServer {
 		}
 	}
 
-	async #handleNotFound(context) {
+	async #handleNotFound(context: Context): Promise<Response> {
 		if (!this.#notFoundHandler) {
 			return context.notFound();
 		}
@@ -444,7 +518,7 @@ class HttpServer {
 		return response ?? context.notFound();
 	}
 
-	async #handleMethodNotAllowed(context, allow) {
+	async #handleMethodNotAllowed(context: Context, allow: string[]): Promise<Response> {
 		context.header("Allow", allow.join(", "));
 		if (!this.#methodNotAllowedHandler) {
 			return context.text("Method Not Allowed", 405);
@@ -454,7 +528,7 @@ class HttpServer {
 		return response ?? context.text("Method Not Allowed", 405);
 	}
 
-	async #handleError(context, error) {
+	async #handleError(context: Context, error: unknown): Promise<Response> {
 		if (!this.#errorHandler) {
 			return context.text("Internal Server Error", 500);
 		}
@@ -468,8 +542,8 @@ class HttpServer {
 		}
 	}
 
-	async #dispatch(context, handler) {
-		const matchedMiddlewares = [];
+	async #dispatch(context: Context, handler: RouteHandler): Promise<Response | undefined> {
+		const matchedMiddlewares: Middleware[] = [];
 		const requestPath = this.#normalizePath(context.req.path);
 
 		for (const middleware of this.#middlewares) {
@@ -478,17 +552,17 @@ class HttpServer {
 			}
 		}
 
-		const createDeferred = () => {
-			let resolve;
-			let reject;
-			const promise = new Promise((res, rej) => {
+		const createDeferred = <T>(): Deferred<T> => {
+			let resolve!: Deferred<T>["resolve"];
+			let reject!: Deferred<T>["reject"];
+			const promise = new Promise<T>((res, rej) => {
 				resolve = res;
 				reject = rej;
 			});
 			return { promise, resolve, reject };
 		};
 
-		const settle = async (promise) => {
+		const settle = async <T>(promise: Promise<T>): Promise<Completion<T>> => {
 			try {
 				return { type: "return", value: await promise };
 			} catch (error) {
@@ -496,9 +570,12 @@ class HttpServer {
 			}
 		};
 
-		const frames = [];
+		const frames: Array<{
+			middlewareResult: Promise<Response | undefined>;
+			nextDeferred: Deferred<Response | undefined>;
+		}> = [];
 		let index = 0;
-		let completion;
+		let completion: Completion<Response | undefined>;
 
 		while (true) {
 			if (index >= matchedMiddlewares.length) {
@@ -507,10 +584,10 @@ class HttpServer {
 			}
 
 			const fn = matchedMiddlewares[index];
-			const nextDeferred = createDeferred();
-			const nextCalled = createDeferred();
+			const nextDeferred = createDeferred<Response | undefined>();
+			const nextCalled = createDeferred<boolean>();
 			let nextUsed = false;
-			let middlewareResult;
+			let middlewareResult: Promise<Response | undefined>;
 
 			try {
 				middlewareResult = Promise.resolve(
@@ -529,7 +606,10 @@ class HttpServer {
 				break;
 			}
 
-			const step = await Promise.race([nextCalled.promise.then(() => ({ type: "next" })), settle(middlewareResult)]);
+			const step = await Promise.race([
+				nextCalled.promise.then(() => ({ type: "next" }) as const),
+				settle(middlewareResult),
+			]);
 
 			if (step.type === "next") {
 				frames.push({ middlewareResult, nextDeferred });
@@ -543,6 +623,9 @@ class HttpServer {
 
 		while (frames.length > 0) {
 			const frame = frames.pop();
+			if (!frame) {
+				break;
+			}
 			if (completion.type === "throw") {
 				frame.nextDeferred.reject(completion.error);
 			} else {
@@ -559,7 +642,7 @@ class HttpServer {
 		return completion.value;
 	}
 
-	#matchMiddlewarePath(middleware, requestPath) {
+	#matchMiddlewarePath(middleware: RegisteredMiddleware, requestPath: string): boolean {
 		if (middleware.isWildcard) {
 			return true;
 		}
@@ -571,7 +654,7 @@ class HttpServer {
 		return requestPath === middleware.prefix;
 	}
 
-	#normalizePath(path) {
+	#normalizePath(path: string): string {
 		if (!path || path === "/") {
 			return "/";
 		}
@@ -582,3 +665,4 @@ class HttpServer {
 }
 
 export { HttpServer, Response };
+export type { Context, HttpServerOptions, Middleware, Next, Request, ResponseOptions, RouteHandler };

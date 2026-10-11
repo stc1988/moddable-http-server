@@ -1,14 +1,15 @@
 {
 	"compilerOptions": {
-		"allowJs": true,
-		"incremental": true,
-		"outDir": "dist",
+		"forceConsistentCasingInFileNames": true,
 		"module": "preserve",
+		"moduleDetection": "force",
 		"moduleResolution": "bundler",
-		"sourceMap": true,
+		"noEmit": true,
+		"strict": true,
 		"lib": ["es2025", "esnext.disposable"],
 		"target": "ES2025",
 		"paths": {
+			"http-server": ["./src/http-server.ts"],
 			"embedded:io/*": ["./node_modules/@moddable/typings/embedded_io/*"],
 			"embedded:io/socket/*": ["./node_modules/@moddable/typings/embedded_io/socket/*"],
 			"embedded:io/audio/*": ["./node_modules/@moddable/typings/embedded_io/audio/*"],
@@ -21,7 +22,7 @@
 			"embedded:network/websocket/*": ["./node_modules/@moddable/typings/embedded_network/websocket/*"],
 			"embedded:network/dns/resolver/*": ["./node_modules/@moddable/typings/embedded_network/dns/resolver/*"],
 			"embedded:network/ntp/*": ["./node_modules/@moddable/typings/embedded_network/ntp/*"],
-			"embedded:storage/*": ["./node_modules/@moddable/typings/embedded_storage/*"],
+			"embedded:storage/*": ["./node_modules/@moddable/typings/embedded/storage/*"],
 			"embedded:provider/*": ["./node_modules/@moddable/typings/embedded_provider/*"],
 			"embedded:*": ["./node_modules/@moddable/typings/embedded/*"],
 			"mc/*": ["./node_modules/@moddable/typings/mc/*"],
@@ -33,5 +34,6 @@
 			"*": ["./node_modules/@moddable/typings/*"]
 		},
 		"types": ["./node_modules/@moddable/typings/xs", "./node_modules/@moddable/typings/mcpack"]
-	}
+	},
+	"include": ["src/**/*.ts", "middleware/**/*.ts"]
 }
