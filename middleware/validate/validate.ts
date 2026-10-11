@@ -1,4 +1,10 @@
-function validate({ json } = {}) {
+import type { Context, Middleware } from "http-server";
+
+interface ValidateOptions {
+	json?: (value: unknown, context: Context) => boolean | Promise<boolean>;
+}
+
+function validate({ json }: ValidateOptions = {}): Middleware {
 	if (typeof json !== "function") {
 		throw new TypeError("json must be a validation function");
 	}
@@ -8,7 +14,7 @@ function validate({ json } = {}) {
 			return c.text("Unsupported Media Type", 415);
 		}
 
-		let value;
+		let value: unknown;
 		try {
 			const text = await c.req.text();
 			if (text == null || text.length === 0) {
@@ -28,3 +34,4 @@ function validate({ json } = {}) {
 }
 
 export { validate };
+export type { ValidateOptions };

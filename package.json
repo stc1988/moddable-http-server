@@ -5,6 +5,7 @@
 	"scripts": {
 		"format": "biome format --write .",
 		"lint": "biome lint --write .",
+		"typecheck": "tsc --noEmit",
 		"start": "mcconfig -d -m examples/basic/manifest.json",
 		"start:deep-middleware": "mcconfig -d -m examples/deep-middleware/manifest.json",
 		"test:http": "sh scripts/run-hurl-tests.sh",
@@ -15,6 +16,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.12",
-		"@moddable/typings": "^10.0.0"
+		"@moddable/typings": "^10.0.0",
+		"typescript": "^7.0.2"
 	}
 }

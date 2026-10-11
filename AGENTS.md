@@ -5,7 +5,7 @@ This file defines working guidelines for AI agents contributing to this reposito
 ## 1. Project Summary
 - Name: `moddable-http-server`
 - Purpose: Lightweight HTTP server for Moddable SDK (router, request/response, context API)
-- Core implementation: `src/http-server.js`
+- Core implementation: `src/http-server.ts`
 - Usage example: `examples/basic/main.js`
 - API tests: `tests/*.hurl`
 
@@ -59,7 +59,7 @@ This file defines working guidelines for AI agents contributing to this reposito
 - When adding tests, include edge cases (trailing slash, unmatched routes, empty bodies), not only happy paths.
 
 ## 8. Recommended Agent Workflow
-1. Identify target code and related tests (`src/http-server.js`, `examples/basic/main.js`, `tests/*.hurl`).
+1. Identify target code and related tests (`src/http-server.ts`, `examples/basic/main.js`, `tests/*.hurl`).
 2. Implement the smallest possible diff.
 3. Run `npm run lint`.
 4. Run `npm run test:http` or `npm test` based on impact.

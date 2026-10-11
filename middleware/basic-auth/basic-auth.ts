@@ -1,7 +1,23 @@
 import { Response } from "http-server";
+import type { Middleware } from "http-server";
 import TextDecoder from "text/decoder";
 
-function decodeBase64(input) {
+interface BasicAuthOptions {
+	username?: string;
+	password?: string;
+	realm?: string;
+}
+
+interface Credentials {
+	username: string;
+	password: string;
+}
+
+const Uint8ArrayWithBase64 = Uint8Array as typeof Uint8Array & {
+	fromBase64(input: string): Uint8Array;
+};
+
+function decodeBase64(input: string): string | null {
 	let clean = "";
 	for (let i = 0; i < input.length; i += 1) {
 		const char = input[i];
@@ -15,13 +31,13 @@ function decodeBase64(input) {
 	}
 
 	try {
-		return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(Uint8Array.fromBase64(clean));
+		return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(Uint8ArrayWithBase64.fromBase64(clean));
 	} catch {
 		return null;
 	}
 }
 
-function createUnauthorizedResponse(realm) {
+function createUnauthorizedResponse(realm: string): Response {
 	return new Response("Unauthorized", {
 		status: 401,
 		headers: {
@@ -31,7 +47,7 @@ function createUnauthorizedResponse(realm) {
 	});
 }
 
-function parseCredentials(headerValue) {
+function parseCredentials(headerValue: string | undefined): Credentials | null {
 	if (!headerValue) {
 		return null;
 	}
@@ -63,7 +79,7 @@ function parseCredentials(headerValue) {
 	};
 }
 
-function basicAuth(options = {}) {
+function basicAuth(options: BasicAuthOptions = {}): Middleware {
 	const username = options.username ?? "";
 	const password = options.password ?? "";
 	const realm = options.realm ?? "Restricted";
@@ -79,3 +95,4 @@ function basicAuth(options = {}) {
 }
 
 export { basicAuth };
+export type { BasicAuthOptions };
