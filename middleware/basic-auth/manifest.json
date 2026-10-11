@@ -1,5 +1,5 @@
 {
-	"include": ["$(MODDABLE)/modules/data/base64/manifest.json"],
+	"include": ["$(MODDABLE)/modules/data/text/decoder/manifest.json"],
 	"modules": {
 		"*": ["./basic-auth"]
 	}

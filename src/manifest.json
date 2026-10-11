@@ -2,7 +2,9 @@
 	"include": [
 		"$(MODDABLE)/examples/manifest_base.json",
 		"$(MODDABLE)/examples/manifest_net.json",
-		"$(MODDABLE)/examples/io/listener/listen/manifest_listen.json"
+		"$(MODDABLE)/examples/io/listener/listen/manifest_listen.json",
+		"$(MODDABLE)/modules/data/text/encoder/manifest.json",
+		"$(MODDABLE)/modules/data/text/decoder/manifest.json"
 	],
 	"modules": {
 		"*": ["./*"]

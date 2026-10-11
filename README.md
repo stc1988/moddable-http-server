@@ -127,6 +127,64 @@ app.use("/private/*", basicAuth({
 
 When authentication fails, the middleware returns `401 Unauthorized` with a `WWW-Authenticate` header.
 
+### Rate limiting
+
+Include `middleware/rate-limit/manifest.json` alongside the server manifest:
+
+```js
+import { rateLimit } from "rate-limit";
+
+app.use("/api/*", rateLimit({ limit: 60, windowMs: 60_000 }));
+```
+
+`limit` defaults to 60 requests; `windowMs` defaults to 60,000 milliseconds
+(valid range: 1–2,147,483,647). Both must be positive integers; `limit` must be a safe integer.
+Invalid options throw at registration time.
+
+Each call to `rateLimit()` creates one shared counter for all matching requests,
+regardless of client or path. Use separate instances for independent route budgets,
+or `app.use(rateLimit(...))` for a server-wide budget. All methods and downstream
+failures count, including authentication failures and unmatched routes. Register
+the limiter before authentication or validation to count rejected attempts.
+
+The fixed window starts with the first admitted request and resets on the first
+request after expiration. Excess requests receive `429` and `Retry-After` in whole
+seconds; rejection does not extend the window. Window boundaries can admit a burst
+of up to twice the limit. The counter uses elapsed system time, requires constant
+memory, and resets when the application restarts. It is not an IP-based limiter.
+
+### JSON validation
+
+Include `middleware/validate/manifest.json` alongside the server manifest:
+
+```js
+import { validate } from "validate";
+
+app.use("/api/*", validate({
+  json: (value) => value !== null && typeof value === "object"
+    && !Array.isArray(value) && typeof value.name === "string"
+    && value.name.length > 0 && value.name.length <= 32
+}));
+app.post("/api/users", (c) => c.json({ name: c.req.validated.name }));
+```
+
+`json(value, context)` is required and may be asynchronous. Return exactly `true`
+to accept the parsed value; other results produce `400`. Define required fields,
+types, lengths, and unknown-field policy in this function. Exceptions thrown by
+the validator follow the server's normal `500` error handling.
+
+The middleware accepts `application/json` (case-insensitive, with optional media
+type parameters). Missing or other content types produce `415`; empty bodies,
+malformed JSON, and invalid UTF-8 produce `400`. Successful validation stores the
+parsed value in `c.req.validated`. The body is consumed: downstream handlers must
+use that property rather than read the body again. Apply one body validator per
+request, before other body readers. Scope it to paths/methods that require JSON;
+it does not automatically skip `GET`, `HEAD`, or `OPTIONS`.
+
+These middleware operate after HTTP parsing. They do not impose receive-size,
+connection-count, or receive-time limits, and cannot prevent the transport layer
+from buffering a request body.
+
 ## API
 
 ### `new HttpServer(options?)`

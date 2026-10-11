@@ -15,3 +15,15 @@ HTTP 200
 [Asserts]
 jsonpath "$[0].title" == "Good Morning"
 jsonpath "$[3].title" == "Good Night"
+
+# Response body readers must also preserve supplementary characters.
+GET {{BASE_URL}}/response/text
+HTTP 200
+[Asserts]
+body == "こんにちは🌍"
+header "content-length" == "19"
+
+GET {{BASE_URL}}/response/json
+HTTP 200
+[Asserts]
+jsonpath "$.message" == "こんにちは🌍"

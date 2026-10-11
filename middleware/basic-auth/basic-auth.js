@@ -1,5 +1,5 @@
-import Base64 from "base64";
 import { Response } from "http-server";
+import TextDecoder from "text/decoder";
 
 function decodeBase64(input) {
 	let clean = "";
@@ -15,7 +15,7 @@ function decodeBase64(input) {
 	}
 
 	try {
-		return String.fromArrayBuffer(Base64.decode(clean));
+		return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(Uint8Array.fromBase64(clean));
 	} catch {
 		return null;
 	}

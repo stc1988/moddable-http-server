@@ -38,3 +38,29 @@ HTTP 200
 header "X-Powered-By" == "moddable-http-server"
 jsonpath "$.message" == "Authenticated"
 jsonpath "$.user" == "admin"
+
+# UTF-8 credentials, including supplementary characters.
+GET {{BASE_URL}}/unicode-private/secret
+Authorization: Basic 5Yip55So6ICF8J+MjTrnp5jlr4bwn5SR
+HTTP 200
+[Asserts]
+body == "Authenticated"
+
+# Existing whitespace normalization is retained.
+GET {{BASE_URL}}/private/secret
+Authorization: Basic YWRt aW46 c2Vj cmV0
+HTTP 200
+
+# Invalid characters and incomplete Base64 must be rejected.
+GET {{BASE_URL}}/private/secret
+Authorization: Basic !!!!
+HTTP 401
+
+GET {{BASE_URL}}/private/secret
+Authorization: Basic YWRtaW46c2VjcmV
+HTTP 401
+
+GET {{BASE_URL}}/private/secret
+[BasicAuth]
+admin: wrong
+HTTP 401

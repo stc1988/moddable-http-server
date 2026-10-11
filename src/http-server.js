@@ -1,5 +1,7 @@
 import Headers from "headers";
 import listen from "listen";
+import TextDecoder from "text/decoder";
+import TextEncoder from "text/encoder";
 // biome-ignore lint/style/useNodejsImportProtocol: use Moddable's built-in url Module
 import { URLSearchParams } from "url";
 
@@ -31,10 +33,12 @@ class Request {
 		this.raw.params = params;
 	}
 	async text() {
-		return this.raw.text();
+		const body = await this.raw.arrayBuffer();
+		return body == null ? body : new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(body);
 	}
 	async json() {
-		return this.raw.json();
+		const text = await this.text();
+		return text == null ? text : JSON.parse(text);
 	}
 	async arrayBuffer() {
 		return this.raw.arrayBuffer();
@@ -53,11 +57,11 @@ class Response {
 		if (body instanceof ArrayBuffer) {
 			this.#body = body;
 		} else if (typeof body === "string") {
-			this.#body = ArrayBuffer.fromString(body);
+			this.#body = new TextEncoder().encode(body).buffer;
 		} else if (body === undefined || body === null) {
 			this.#body = new ArrayBuffer(0);
 		} else {
-			this.#body = ArrayBuffer.fromString(String(body));
+			this.#body = new TextEncoder().encode(String(body)).buffer;
 		}
 		const headers = new Headers();
 		if (options.headers) {
@@ -104,7 +108,7 @@ class Response {
 		if (body) {
 			this.#body = undefined;
 			body = await body;
-			body = String.fromArrayBuffer(body);
+			body = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(body);
 			return JSON.parse(body);
 		}
 		return body;
@@ -114,7 +118,7 @@ class Response {
 		if (body) {
 			this.#body = undefined;
 			body = await body;
-			body = String.fromArrayBuffer(body);
+			body = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(body);
 		}
 		return body;
 	}
@@ -372,8 +376,9 @@ class HttpServer {
 	};
 
 	constructor(options = {}) {
-		const port = options?.port;
+		const port = options?.port ?? 80;
 		this.#listen(port);
+		trace(`[http] Listening on port ${port}\n`);
 	}
 
 	async #listen(port) {

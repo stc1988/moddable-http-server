@@ -1,7 +1,27 @@
 import { basicAuth } from "basic-auth";
 import { HttpServer, Response } from "http-server";
+import { rateLimit } from "rate-limit";
+import TextDecoder from "text/decoder";
+import { validate } from "validate";
 
 const app = new HttpServer();
+
+app.use("/limited/*", rateLimit({ limit: 2, windowMs: 1000 }));
+app.get("/limited/hello", (c) => c.text("hello"));
+
+app.use(
+	"/validated/*",
+	validate({
+		json: (value) =>
+			value !== null &&
+			!Array.isArray(value) &&
+			typeof value === "object" &&
+			typeof value.name === "string" &&
+			value.name.length > 0 &&
+			value.name.length <= 32,
+	}),
+);
+app.post("/validated/hello", (c) => c.json({ name: c.req.validated.name }));
 
 app.onNotFound((c) => {
 	return c.json(
@@ -76,6 +96,14 @@ app.get("/response/default", () => {
 	return new Response("Default response");
 });
 
+app.get("/response/text", async (c) => {
+	return c.text(await new Response("こんにちは🌍").text());
+});
+
+app.get("/response/json", async (c) => {
+	return c.json(await new Response(JSON.stringify({ message: "こんにちは🌍" })).json());
+});
+
 app.get("/header", (c) => {
 	const userAgent = c.req.header("User-Agent");
 	return c.text(`Your UserAgent is ${userAgent}`);
@@ -117,7 +145,7 @@ app.post("/post/json", async (c) => {
 
 app.post("/post/binary", async (c) => {
 	const body = await c.req.arrayBuffer();
-	return c.text(`bytes: ${body.byteLength}, text: ${String.fromArrayBuffer(body)}`);
+	return c.text(`bytes: ${body.byteLength}, text: ${new TextDecoder("utf-8", { fatal: true }).decode(body)}`);
 });
 
 app.post("/post/form", async (c) => {
@@ -145,6 +173,9 @@ app.get("/private/secret", (c) => {
 		user: "admin",
 	});
 });
+
+app.use("/unicode-private/*", basicAuth({ username: "利用者🌍", password: "秘密🔑" }));
+app.get("/unicode-private/secret", (c) => c.text("Authenticated"));
 
 app.get("/status/204", () => {
 	return new Response("", { status: 204 });
